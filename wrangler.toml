@@ -31,3 +31,7 @@ ENVIRONMENT = "production"
 # Browser origins allowed by CORS (the dashboard). Override per environment.
 WEB_ORIGINS = "http://localhost:5173,https://hitsonce.app"
 APP_URL = "https://hitsonce.app"
+# Cloudflare Access (Zero Trust) — gates /dashboard + /api. Not secrets (the security
+# is in the JWT signature). AUD comes from the Access application.
+ACCESS_TEAM_DOMAIN = "jtanna.cloudflareaccess.com"
+ACCESS_AUD = "ca44468e54f69509456ca99283719b63a3c2f44a3bcdfbcb85c49377d2a9c943"
