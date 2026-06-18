@@ -11,7 +11,12 @@ account_id = "7001118f85b48a64b8239b870e497802"
 # hitsonce.app that allows your email). Collector routes on tracked zones are added
 # per site and stay PUBLIC, e.g.
 #   { pattern = "jtwebman.com/_stats", zone_name = "jtwebman.com" }
-routes = [{ pattern = "hitsonce.app", custom_domain = true }]
+routes = [
+  { pattern = "hitsonce.app", custom_domain = true },
+  # Collector: only /_stats on each tracked zone routes to this Worker; the rest of
+  # the site is untouched. Public (never behind Access).
+  { pattern = "onyourfeet.app/_stats", zone_name = "onyourfeet.app" },
+]
 
 # Storage: Cloudflare D1 (SQLite). Self-host setup is one command:
 #   wrangler d1 create hitsonce        # then paste the returned database_id below
