@@ -1,0 +1,39 @@
+{
+  "name": "hitsonce",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "migrate": "node scripts/migrate.ts",
+    "migrate:new": "node scripts/new-migration.ts"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "0.8.0",
+    "hono": "4.12.25",
+    "isbot": "5.1.43",
+    "kysely": "0.29.2",
+    "pg": "8.21.0",
+    "ua-parser-js": "2.0.10",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20260617.1",
+    "@eslint/js": "10.0.1",
+    "@types/pg": "8.20.0",
+    "eslint": "10.5.0",
+    "globals": "17.6.0",
+    "prettier": "3.8.4",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.61.1",
+    "wrangler": "4.101.0"
+  }
+}

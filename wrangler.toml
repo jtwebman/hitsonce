@@ -1,0 +1,33 @@
+name = "hitsonce"
+main = "src/index.ts"
+compatibility_date = "2026-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Pin deploys to JT's PERSONAL Cloudflare account so they can never land on the
+# work (Harman) account. (Account IDs are not secret — safe to commit.)
+account_id = "7001118f85b48a64b8239b870e497802"
+
+# HitsOnce is ONE Worker serving two roles on different routes:
+#   1. The first-party collector — route the collector path on each tracked zone here:
+#        routes = [{ pattern = "jtwebman.com/_stats", zone_name = "jtwebman.com" }]
+#   2. The dashboard + API on the app domain (set at deploy, once the zone exists):
+#        routes = [{ pattern = "hitsonce.app/*", custom_domain = true }]
+
+# Postgres via Hyperdrive (Cloudflare's connection pooler). Create the config once:
+#   wrangler hyperdrive create hitsonce \
+#     --connection-string="postgres://USER:PASS@HOST:5432/hitsonce" \
+#     --caching-disabled        # read-after-write consistency; we just want the pooling
+# then paste the returned id below. `localConnectionString` is used by `wrangler dev`.
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "<fill-from: wrangler hyperdrive create hitsonce ...>"
+localConnectionString = "postgresql://postgres:postgres@localhost:5432/hitsonce"
+
+# Daily partition maintenance: ensure the current + next month's events partition exist.
+[triggers]
+crons = ["0 0 * * *"]
+
+[vars]
+# Browser origins allowed by CORS (the dashboard). Override per environment.
+WEB_ORIGINS = "http://localhost:5173,https://hitsonce.app"
+APP_URL = "https://hitsonce.app"
