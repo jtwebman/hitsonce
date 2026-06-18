@@ -3,11 +3,10 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import type { Env } from '../../env.ts';
 import type { Vars } from '../middleware/context.ts';
-import { requireAccess } from '../middleware/access.ts';
 import { addDomain, listDomains, removeDomain } from '../../app/domains.ts';
 
+// Access is enforced by app.use('/api/*', requireAccess) in http/app.ts.
 export const domainRoutes = new Hono<{ Bindings: Env; Variables: Vars }>();
-domainRoutes.use('*', requireAccess);
 
 domainRoutes.get('/api/domains', async (c) => {
   return c.json({ domains: await listDomains(c.get('ctx')) });

@@ -1,11 +1,10 @@
 import { Hono } from 'hono';
 import type { Env } from '../../env.ts';
 import type { Vars } from '../middleware/context.ts';
-import { requireAccess } from '../middleware/access.ts';
 import { getStats } from '../../app/stats.ts';
 
+// Access is enforced by app.use('/api/*', requireAccess) in http/app.ts.
 export const statsRoutes = new Hono<{ Bindings: Env; Variables: Vars }>();
-statsRoutes.use('*', requireAccess);
 
 statsRoutes.get('/api/stats', async (c) => {
   const domainId = c.req.query('domain');
