@@ -22,7 +22,7 @@ account_id = "7001118f85b48a64b8239b870e497802"
 [[d1_databases]]
 binding = "DB"
 database_name = "hitsonce"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "aeb2183f-1fd0-4597-a801-e5a65c5a2c19"
 migrations_dir = "migrations"
 
 [vars]
