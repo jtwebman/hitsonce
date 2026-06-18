@@ -59,9 +59,8 @@ export function renderDashboard(email: string): string {
       <option value="30" selected>Last 30 days</option>
       <option value="90">Last 90 days</option>
     </select>
-    <button id="add">+ Add domain</button>
   </div>
-  <section id="empty" class="muted" hidden>No domains yet — add one to start collecting.</section>
+  <section id="empty" class="muted" hidden>No domains configured yet.</section>
   <section id="stats" hidden>
     <div class="cards">
       <div class="card"><div class="num" id="uv">–</div><div class="lbl">Unique visitors</div></div>
@@ -80,19 +79,6 @@ export function renderDashboard(email: string): string {
     <button id="del" class="danger">Delete domain</button>
   </section>
 </main>
-<dialog id="dlg">
-  <form method="dialog">
-    <h3>Add domain</h3>
-    <p><label>Hostname<br /><input id="host" placeholder="example.com" required /></label></p>
-    <p><label>Identity<br /><select id="mode">
-      <option value="cookieless">Cookieless (no banner)</option>
-      <option value="cookie">First-party cookie</option>
-    </select></label></p>
-    <menu style="display:flex;gap:.5rem;justify-content:flex-end;padding:0">
-      <button value="cancel">Cancel</button><button id="save" value="save">Add</button>
-    </menu>
-  </form>
-</dialog>
 <script>
   var $ = function (id) { return document.getElementById(id); };
   var domains = [];
@@ -183,19 +169,6 @@ export function renderDashboard(email: string): string {
   }
   $('domain').onchange = loadStats;
   $('range').onchange = loadStats;
-  $('add').onclick = function () { $('dlg').showModal(); };
-  $('dlg').addEventListener('close', async function () {
-    if ($('dlg').returnValue !== 'save') return;
-    var hostname = $('host').value.trim();
-    if (!hostname) return;
-    await api('/api/domains', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ hostname: hostname, identityMode: $('mode').value }),
-    });
-    $('host').value = '';
-    await loadDomains();
-  });
   $('del').onclick = async function () {
     var dom = current();
     if (!dom || !confirm('Delete ' + dom.hostname + ' and all its data?')) return;
