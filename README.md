@@ -129,9 +129,10 @@ The collector at `/_stats` is intentionally **public** — it has to accept beac
 anyone visiting a tracked page. Keep it safe:
 
 - **Rate-limit `/_stats`.** Add a Cloudflare **Rate Limiting** rule on each tracked zone,
-  matching path `/_stats` — e.g. **500 requests / 1 hour / per IP**, action _Block_. It runs
-  at the edge before the Worker, so it costs nothing and caps flooding. **Strongly recommended
-  for any self-hosted deployment.**
+  matching path `/_stats`, action _Block_. On free/lower tiers the only counting window is
+  **10 seconds**, so use a burst cap — e.g. **50 requests / 10s / per IP** (~5/sec: far above
+  any real visitor, a hard stop on floods). Per-hour quotas need paid Advanced Rate Limiting.
+  It runs at the edge before the Worker. **Strongly recommended for any self-hosted deployment.**
 - **Batched writes.** The collector enqueues events and a queue consumer bulk-inserts them, so
   a traffic spike becomes a few batched D1 writes instead of one per hit (Queues require the
   Workers Paid plan; without the binding the collector falls back to direct writes).
