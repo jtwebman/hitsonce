@@ -63,7 +63,7 @@ export function renderDashboard(email: string): string {
   <section id="empty" class="muted" hidden>No domains configured yet.</section>
   <section id="stats" hidden>
     <div class="cards">
-      <div class="card"><div class="num" id="uv">–</div><div class="lbl">Unique visitors</div></div>
+      <div class="card"><div class="num" id="uv">–</div><div class="lbl">Unique visitors · last 24h</div></div>
       <div class="card"><div class="num" id="pv">–</div><div class="lbl">Pageviews</div></div>
     </div>
     <div class="embed">Embed on your site: <code id="embed"></code></div>
@@ -139,7 +139,7 @@ export function renderDashboard(email: string): string {
     var from = new Date(Date.now() - days * 86400000).toISOString();
     var s = await api('/api/stats?domain=' + encodeURIComponent(dom.id) + '&from=' + from + '&to=' + to);
     $('stats').hidden = false;
-    $('uv').textContent = s.visitors.toLocaleString();
+    $('uv').textContent = s.uniques24h.toLocaleString();
     $('pv').textContent = s.pageviews.toLocaleString();
     $('embed').textContent = '<scr' + 'ipt src="' + dom.collectorPath + '" defer></scr' + 'ipt>';
     var maxd = s.byDay.reduce(function (m, d) { return Math.max(m, d.pageviews); }, 1);

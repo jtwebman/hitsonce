@@ -71,7 +71,8 @@ export interface CustomEventBucket {
 
 export interface Stats {
   pageviews: number;
-  visitors: number;
+  /** Unique visitors over a rolling 24h window (cookieless hashes rotate daily). */
+  uniques24h: number;
   byDay: DayBucket[];
   topPages: CountBucket[];
   topReferrers: CountBucket[];

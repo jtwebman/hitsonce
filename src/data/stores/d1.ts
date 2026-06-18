@@ -130,9 +130,21 @@ export function createD1Store(db: D1Database): Store {
       const pv = `${base} and name = 'pageview'`;
 
       const totals = await db
-        .prepare(`select count(*) as pv, count(distinct visitor_hash) as uv from events ${pv}`)
+        .prepare(`select count(*) as pv from events ${pv}`)
         .bind(...args)
-        .first<{ pv: number; uv: number }>();
+        .first<{ pv: number }>();
+
+      // Unique visitors over a rolling 24h window. Cookieless hashes rotate daily, so
+      // this is the meaningful unique figure — cross-day/range totals would just sum
+      // daily uniques. Real humans only (pageviews, non-bot).
+      const cutoff24 = toSqlite(new Date(Date.now() - 86_400_000).toISOString());
+      const u24 = await db
+        .prepare(
+          `select count(distinct visitor_hash) as u from events
+           where domain_id = ? and name = 'pageview' and is_bot = 0 and ts >= ?`,
+        )
+        .bind(q.domainId, cutoff24)
+        .first<{ u: number }>();
 
       const day = await db
         .prepare(
@@ -165,7 +177,7 @@ export function createD1Store(db: D1Database): Store {
 
       return {
         pageviews: totals?.pv ?? 0,
-        visitors: totals?.uv ?? 0,
+        uniques24h: u24?.u ?? 0,
         byDay: day.results.map((r) => ({ day: r.day, pageviews: r.pv, visitors: r.uv })),
         topPages: await top('path'),
         topReferrers: await top('referrer_host'),
