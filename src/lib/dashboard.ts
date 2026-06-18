@@ -48,7 +48,7 @@ export function renderDashboard(email: string): string {
 </style>
 </head>
 <body>
-<header><h1>HitsOnce</h1><div class="who">${escapeHtml(email)}</div></header>
+<header><h1>HitsOnce</h1><div class="who">${escapeHtml(email)} · <a href="/cdn-cgi/access/logout" style="color:inherit">Log out</a></div></header>
 <main>
   <div class="controls">
     <select id="domain"></select>

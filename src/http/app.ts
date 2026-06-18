@@ -5,6 +5,7 @@ import { getConfig } from '../config.ts';
 import { contextMiddleware, type Vars } from './middleware/context.ts';
 import { requireAccess } from './middleware/access.ts';
 import { renderDashboard } from '../lib/dashboard.ts';
+import { renderSplash } from '../lib/splash.ts';
 import { health } from './routes/health.ts';
 import { collect } from './routes/collect.ts';
 import { domainRoutes } from './routes/domains.ts';
@@ -32,12 +33,16 @@ export function createHttpApp() {
   // and health stay public.
   app.use('/api/*', requireAccess);
 
-  // Public routes.
+  // Public routes: marketing splash, login entry, health, and the collector.
+  app.get('/', (c) => c.html(renderSplash()));
+  app.get('/login', (c) => c.redirect('/dashboard'));
   app.route('/', health);
   app.route('/', collect);
 
-  // Gated dashboard (app domain). requireAccess runs before the handler.
-  app.get('/', requireAccess, (c) => c.html(renderDashboard(c.get('ctx').auth?.email ?? '')));
+  // Gated dashboard. /login redirects here; hitting it triggers the Access flow.
+  app.get('/dashboard', requireAccess, (c) =>
+    c.html(renderDashboard(c.get('ctx').auth?.email ?? '')),
+  );
 
   // Gated API routes.
   app.route('/', domainRoutes);
