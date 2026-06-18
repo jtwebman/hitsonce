@@ -62,13 +62,24 @@ hitsonce('breath_cycle'); // no value
 
 Each shows up in the dashboard's Events panel, tallied by name and broken down by value.
 
+## Track a new site
+
+1. Add a collector route to `wrangler.toml`, then `npm run deploy`:
+   ```toml
+   { pattern = "example.com/_stats", zone_name = "example.com" }
+   ```
+   (Only `/_stats` routes to HitsOnce; the rest of the site is untouched. The zone must
+   be in the same Cloudflare account as this Worker.)
+2. Add the domain in the dashboard (it generates the per-domain salt).
+3. Embed the snippet (see above) and deploy the site.
+
 ## Roadmap
 
 - [x] D1 storage behind a pluggable `Store`; collector pipeline (ingest, geo, UA → device,
       bot detection, cookieless hash).
 - [x] Domains + stats API behind Cloudflare Access.
-- [ ] Dashboard UI (visitors, uniques, top pages/referrers, geo, devices).
-- [ ] Auto-provision the `/_stats` Worker route on your zones when you add a domain.
+- [x] Dashboard UI (visitors, uniques, top pages/referrers, geo, devices).
+- [x] Custom events with optional values.
 - [ ] Optional Postgres / Analytics Engine `Store` adapters.
 
 ## License
