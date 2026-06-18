@@ -95,4 +95,6 @@ export interface Store {
   /** Bulk insert a batch of events (used by the queue consumer). Idempotent by id. */
   insertEvents(events: NewEvent[]): Promise<void>;
   getStats(query: StatsQuery): Promise<Stats>;
+  /** Delete events older than the given ISO-8601 cutoff; returns rows removed. */
+  pruneEventsBefore(cutoff: string): Promise<number>;
 }

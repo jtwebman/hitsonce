@@ -200,5 +200,10 @@ export function createD1Store(db: D1Database): Store {
         })),
       };
     },
+
+    async pruneEventsBefore(cutoff: string): Promise<number> {
+      const res = await db.prepare('delete from events where ts < ?').bind(toSqlite(cutoff)).run();
+      return res.meta.changes ?? 0;
+    },
   };
 }

@@ -148,6 +148,8 @@ audit-grade.
 - [x] Domains + stats API behind Cloudflare Access.
 - [x] Dashboard UI (visitors, uniques, top pages/referrers, geo, devices).
 - [x] Custom events with optional values.
+- [x] Queue-batched writes + daily retention cron.
+- [ ] Tiered rollups (5m/1h/1d) — only needed at large scale.
 - [ ] Optional Postgres / Analytics Engine `Store` adapters.
 
 ## License

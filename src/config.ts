@@ -16,6 +16,8 @@ export interface IConfig {
   appUrl: string;
   /** Cloudflare Access config. Both set => enforce; neither => dev passthrough. */
   access: { teamDomain: string | undefined; aud: string | undefined };
+  /** Days of raw events to retain (the daily cron prunes older ones). */
+  retentionDays: number;
 }
 
 const LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
@@ -32,5 +34,6 @@ export function getConfig(env: Env): IConfig {
       .filter(Boolean),
     appUrl: env.APP_URL ?? 'https://hitsonce.app',
     access: { teamDomain: env.ACCESS_TEAM_DOMAIN, aud: env.ACCESS_AUD },
+    retentionDays: ((n) => (Number.isFinite(n) && n > 0 ? n : 365))(Number(env.RETENTION_DAYS)),
   };
 }

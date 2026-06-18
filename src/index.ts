@@ -24,4 +24,26 @@ export default {
       batch.retryAll(); // idempotent: events INSERT OR IGNORE by id
     }
   },
+  // Daily retention cron: prune raw events older than the retention window so storage
+  // stays bounded and queries stay fast.
+  async scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<void> {
+    const config = getConfig(env);
+    const logger = createLogger(config.logLevel, { source: 'cron' });
+    const store = createStore(env);
+    ctx.waitUntil(
+      (async () => {
+        try {
+          const cutoff = new Date(Date.now() - config.retentionDays * 86_400_000).toISOString();
+          const deleted = await store.pruneEventsBefore(cutoff);
+          logger.info('retention prune complete', { retentionDays: config.retentionDays, deleted });
+        } catch (err) {
+          logger.error(err, { during: 'retention cron' });
+        }
+      })(),
+    );
+  },
 };

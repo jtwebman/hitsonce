@@ -16,6 +16,8 @@ export interface Env {
   WEB_ORIGINS?: string;
   /** Public base URL of the dashboard/app. */
   APP_URL?: string;
+  /** Days of raw events to keep; the daily cron prunes older ones. Default 365. */
+  RETENTION_DAYS?: string;
   /** Cloudflare Access (Zero Trust) team domain, e.g. "myteam.cloudflareaccess.com". */
   ACCESS_TEAM_DOMAIN?: string;
   /** Cloudflare Access application AUD tag. Both must be set to enforce Access. */
