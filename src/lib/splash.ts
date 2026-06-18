@@ -47,8 +47,7 @@ export function renderSplash(): string {
     First-party, cookieless by default, no consent banner — and fully open source.
   </p>
   <div class="btns">
-    <a class="btn primary" href="/login">Open dashboard</a>
-    <a class="btn" href="https://github.com/jtwebman/hitsonce">View on GitHub</a>
+    <a class="btn primary" href="https://github.com/jtwebman/hitsonce">Get it on GitHub</a>
   </div>
 </section>
 <section class="features">

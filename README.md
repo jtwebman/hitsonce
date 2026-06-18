@@ -44,6 +44,37 @@ npm run dev                 # wrangler dev (simulates D1 locally)
 
 `npm run typecheck` · `npm run lint` · `npm run format:check`.
 
+## Deploy your own
+
+HitsOnce is meant to be self-hosted on **your** Cloudflare account, so the data stays yours.
+
+1. **Clone + install:**
+   ```bash
+   git clone https://github.com/jtwebman/hitsonce && cd hitsonce && npm install
+   ```
+2. **Create the database** and paste the printed `database_id` into `[[d1_databases]]` in
+   `wrangler.toml`:
+   ```bash
+   npx wrangler d1 create hitsonce
+   ```
+3. **Use your account:** set `account_id` in `wrangler.toml` to your own Cloudflare account id
+   (the committed value is the original author's, kept only as a deploy guard).
+4. **Apply the schema:** `npm run migrate`
+5. **Pick a dashboard hostname** — its own domain or a subdomain (e.g. `stats.yourdomain.com`) —
+   and add it as a custom-domain route in `wrangler.toml`:
+   ```toml
+   routes = [{ pattern = "stats.yourdomain.com", custom_domain = true }]
+   ```
+6. **Gate it with Cloudflare Access** (Zero Trust): create a self-hosted Access application
+   covering `stats.yourdomain.com/dashboard` and `/api`, allow your email, then set in
+   `wrangler.toml` `[vars]`:
+   ```toml
+   ACCESS_TEAM_DOMAIN = "yourteam.cloudflareaccess.com"
+   ACCESS_AUD = "<your Access application AUD tag>"
+   ```
+   Without these the dashboard fails closed in production (stays locked), so it's never public.
+7. **Deploy:** `npm run deploy`, then open `https://stats.yourdomain.com` and log in via Access.
+
 ## Embed the tracker
 
 Add this to every page (e.g. SvelteKit `src/app.html`). It loads the first-party
@@ -77,14 +108,20 @@ Each shows up in the dashboard's Events panel, tallied by name and broken down b
 
 ## Track a new site
 
-1. Add a collector route to `wrangler.toml`, then `npm run deploy`:
+The tracked hostname can be any domain or **subdomain** whose Cloudflare zone is in your account.
+
+1. **Route `/_stats` to the Worker** in `wrangler.toml`, then `npm run deploy`:
    ```toml
    { pattern = "example.com/_stats", zone_name = "example.com" }
    ```
-   (Only `/_stats` routes to HitsOnce; the rest of the site is untouched. The zone must
-   be in the same Cloudflare account as this Worker.)
-2. Add the domain in the dashboard (it generates the per-domain salt).
-3. Embed the snippet (see above) and deploy the site.
+   Only `/_stats` is routed to HitsOnce; the rest of the site is untouched.
+2. **Register the domain** — one row in D1, with a random salt for the cookieless hash:
+   ```bash
+   npx wrangler d1 execute hitsonce --remote --command \
+     "insert into domains (id, hostname, salt) values ('$(uuidgen | tr A-Z a-z)', 'example.com', '$(openssl rand -hex 16)')"
+   ```
+3. **Embed the snippet** (see "Embed the tracker") on the site and deploy it. Pageviews flow
+   automatically; fire custom events with `window.hitsonce?.(name, value?)`.
 
 ## Roadmap
 
