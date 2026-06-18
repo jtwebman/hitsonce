@@ -50,6 +50,18 @@ npm run dev                 # wrangler dev (simulates D1 locally)
 <script src="/_stats" defer></script>
 ```
 
+### Custom events
+
+The snippet exposes `hitsonce(name, value?)` for events beyond pageviews:
+
+```js
+hitsonce('timer_start', 45); // value is optional, e.g. minutes set
+hitsonce('timer_finish', 45);
+hitsonce('breath_cycle'); // no value
+```
+
+Each shows up in the dashboard's Events panel, tallied by name and broken down by value.
+
 ## Roadmap
 
 - [x] D1 storage behind a pluggable `Store`; collector pipeline (ingest, geo, UA → device,

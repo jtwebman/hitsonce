@@ -7,6 +7,7 @@ import { isBot } from '../lib/bots.ts';
 // The client beacon (kept short on the wire; see lib/tracker.ts).
 export interface Beacon {
   n?: string;
+  v?: string | number | null;
   path?: string;
   ref?: string | null;
   lang?: string | null;
@@ -64,6 +65,7 @@ export async function recordEvent(ctx: IContext, input: CollectInput): Promise<{
     domainId: domain.id,
     visitorHash: hash,
     name: (input.beacon.n ?? 'pageview').slice(0, 64),
+    value: input.beacon.v != null ? String(input.beacon.v).slice(0, 128) : null,
     path: input.beacon.path ? input.beacon.path.slice(0, 1024) : null,
     referrerHost,
     country: input.geo.country,

@@ -93,15 +93,16 @@ export function createD1Store(db: D1Database): Store {
       await db
         .prepare(
           `insert into events
-            (id, domain_id, visitor_hash, name, path, referrer_host, country, region,
+            (id, domain_id, visitor_hash, name, value, path, referrer_host, country, region,
              city, timezone, language, browser, os, device, screen_w, screen_h, is_bot)
-           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           crypto.randomUUID(),
           e.domainId,
           e.visitorHash,
           e.name,
+          e.value,
           e.path,
           e.referrerHost,
           e.country,
@@ -123,18 +124,20 @@ export function createD1Store(db: D1Database): Store {
       const from = toSqlite(q.from);
       const to = toSqlite(q.to);
       const botClause = q.includeBots ? '' : ' and is_bot = 0';
-      const where = `where domain_id = ? and ts >= ? and ts < ?${botClause}`;
       const args = [q.domainId, from, to] as const;
+      const base = `where domain_id = ? and ts >= ? and ts < ?${botClause}`;
+      // Audience metrics count pageviews only; custom events are tallied separately.
+      const pv = `${base} and name = 'pageview'`;
 
       const totals = await db
-        .prepare(`select count(*) as pv, count(distinct visitor_hash) as uv from events ${where}`)
+        .prepare(`select count(*) as pv, count(distinct visitor_hash) as uv from events ${pv}`)
         .bind(...args)
         .first<{ pv: number; uv: number }>();
 
       const day = await db
         .prepare(
           `select date(ts) as day, count(*) as pv, count(distinct visitor_hash) as uv
-           from events ${where} group by date(ts) order by day`,
+           from events ${pv} group by date(ts) order by day`,
         )
         .bind(...args)
         .all<{ day: string; pv: number; uv: number }>();
@@ -143,13 +146,22 @@ export function createD1Store(db: D1Database): Store {
       const top = async (col: string): Promise<CountBucket[]> => {
         const { results } = await db
           .prepare(
-            `select ${col} as k, count(*) as c from events ${where}
+            `select ${col} as k, count(*) as c from events ${pv}
              and ${col} is not null and ${col} <> '' group by ${col} order by c desc limit 10`,
           )
           .bind(...args)
           .all<{ k: string; c: number }>();
         return results.map((r) => ({ key: r.k, count: r.c }));
       };
+
+      // Custom (non-pageview) events, tallied by name + value.
+      const customRows = await db
+        .prepare(
+          `select name as name, value as value, count(*) as c from events ${base}
+           and name <> 'pageview' group by name, value order by name asc, c desc limit 100`,
+        )
+        .bind(...args)
+        .all<{ name: string; value: string | null; c: number }>();
 
       return {
         pageviews: totals?.pv ?? 0,
@@ -160,6 +172,11 @@ export function createD1Store(db: D1Database): Store {
         countries: await top('country'),
         devices: await top('device'),
         browsers: await top('browser'),
+        customEvents: customRows.results.map((r) => ({
+          name: r.name,
+          value: r.value,
+          count: r.c,
+        })),
       };
     },
   };

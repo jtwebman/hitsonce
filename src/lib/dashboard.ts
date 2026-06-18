@@ -45,6 +45,8 @@ export function renderDashboard(email: string): string {
   .row .c { color:var(--muted); font-variant-numeric:tabular-nums; z-index:1; }
   .row .bar { position:absolute; left:0; top:.25rem; bottom:.25rem; background:var(--accent); opacity:.15; border-radius:4px; }
   .muted { color:var(--muted); }
+  .evt { margin-bottom:.9rem; }
+  .evt-h { font-weight:600; margin-bottom:.25rem; }
 </style>
 </head>
 <body>
@@ -74,6 +76,7 @@ export function renderDashboard(email: string): string {
       <div class="panel"><h3>Devices</h3><div id="devices"></div></div>
       <div class="panel"><h3>Browsers</h3><div id="browsers"></div></div>
     </div>
+    <div class="panel" style="margin-top:1rem"><h3>Events</h3><div id="events"></div></div>
     <button id="del" class="danger">Delete domain</button>
   </section>
 </main>
@@ -114,6 +117,30 @@ export function renderDashboard(email: string): string {
         '<span class="c">' + r.count + '</span></div>';
     }).join('');
   }
+  function eventsHtml(rows) {
+    if (!rows.length) return '<div class="muted">No events yet</div>';
+    var byName = {}, order = [];
+    rows.forEach(function (r) {
+      if (!byName[r.name]) { byName[r.name] = []; order.push(r.name); }
+      byName[r.name].push(r);
+    });
+    return order.map(function (name) {
+      var list = byName[name];
+      var total = list.reduce(function (sum, r) { return sum + r.count; }, 0);
+      var max = list.reduce(function (m, r) { return Math.max(m, r.count); }, 1);
+      var hasValues = list.some(function (r) { return r.value !== null && r.value !== ''; });
+      var head = '<div class="evt-h">' + esc(name) + ' <span class="muted">' + total + '</span></div>';
+      if (!hasValues) return '<div class="evt">' + head + '</div>';
+      var body = list.map(function (r) {
+        var label = (r.value === null || r.value === '') ? '(no value)' : r.value;
+        var w = ((r.count / max) * 100).toFixed(1);
+        return '<div class="row"><span class="bar" style="width:' + w + '%"></span>' +
+          '<span class="k" title="' + esc(label) + '">' + esc(label) + '</span>' +
+          '<span class="c">' + r.count + '</span></div>';
+      }).join('');
+      return '<div class="evt">' + head + body + '</div>';
+    }).join('');
+  }
   function current() {
     var id = $('domain').value;
     return domains.filter(function (d) { return d.id === id; })[0];
@@ -142,6 +169,7 @@ export function renderDashboard(email: string): string {
     $('countries').innerHTML = bars(s.countries);
     $('devices').innerHTML = bars(s.devices);
     $('browsers').innerHTML = bars(s.browsers);
+    $('events').innerHTML = eventsHtml(s.customEvents);
   }
   async function loadDomains() {
     var d = await api('/api/domains');

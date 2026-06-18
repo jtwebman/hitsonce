@@ -25,6 +25,8 @@ export interface NewEvent {
   domainId: string;
   visitorHash: string;
   name: string;
+  /** Optional value for custom events, e.g. the minutes a timer was set to. */
+  value: string | null;
   path: string | null;
   referrerHost: string | null;
   country: string | null;
@@ -59,6 +61,14 @@ export interface DayBucket {
   visitors: number;
 }
 
+// A custom (non-pageview) event tallied by name + value. value is null when the
+// event was fired without one.
+export interface CustomEventBucket {
+  name: string;
+  value: string | null;
+  count: number;
+}
+
 export interface Stats {
   pageviews: number;
   visitors: number;
@@ -68,6 +78,7 @@ export interface Stats {
   countries: CountBucket[];
   devices: CountBucket[];
   browsers: CountBucket[];
+  customEvents: CustomEventBucket[];
 }
 
 export interface Store {
