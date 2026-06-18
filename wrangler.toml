@@ -26,6 +26,10 @@ database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "migrations"
 
 [vars]
+# Deployed builds are production: requireAccess fails CLOSED (503) until Access is
+# configured, so a deploy can't expose the dashboard. `wrangler dev` overrides this
+# to "development" via .dev.vars (gitignored) for the local passthrough.
+ENVIRONMENT = "production"
 # Browser origins allowed by CORS (the dashboard). Override per environment.
 WEB_ORIGINS = "http://localhost:5173,https://hitsonce.app"
 APP_URL = "https://hitsonce.app"

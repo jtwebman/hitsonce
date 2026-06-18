@@ -15,6 +15,11 @@ export const requireAccess: MiddlewareHandler<{ Bindings: Env; Variables: Vars }
   const { teamDomain, aud } = ctx.config.access;
 
   if (!teamDomain || !aud) {
+    // Access isn't configured. In production, fail CLOSED so a deploy can never
+    // expose the dashboard/API; only pass through outside production (local dev).
+    if (ctx.config.environment === 'production') {
+      return c.json({ error: 'access_not_configured' }, 503);
+    }
     const devEmail = c.req.header('Cf-Access-Authenticated-User-Email') ?? 'dev@localhost';
     ctx.auth = { email: devEmail };
     return next();
