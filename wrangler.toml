@@ -7,13 +7,11 @@ compatibility_flags = ["nodejs_compat"]
 # work (Harman) account. (Account IDs are not secret — safe to commit.)
 account_id = "7001118f85b48a64b8239b870e497802"
 
-# One Worker, two roles set by route at deploy time:
-#   - Dashboard/API on the app domain, gated by Cloudflare Access (Zero Trust):
-#       routes = [{ pattern = "hitsonce.app/*", custom_domain = true }]
-#     Create an Access application over hitsonce.app and allow your email(s).
-#   - The collector, served first-party on each tracked zone (PUBLIC — never behind
-#     Access, or it would block your visitors):
-#       routes = [{ pattern = "jtwebman.com/_stats", zone_name = "jtwebman.com" }]
+# Dashboard/API on the app domain (gate it with a Cloudflare Access application over
+# hitsonce.app that allows your email). Collector routes on tracked zones are added
+# per site and stay PUBLIC, e.g.
+#   { pattern = "jtwebman.com/_stats", zone_name = "jtwebman.com" }
+routes = [{ pattern = "hitsonce.app", custom_domain = true }]
 
 # Storage: Cloudflare D1 (SQLite). Self-host setup is one command:
 #   wrangler d1 create hitsonce        # then paste the returned database_id below
