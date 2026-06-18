@@ -16,6 +16,7 @@ routes = [
   # Collector: only /_stats on each tracked zone routes to this Worker; the rest of
   # the site is untouched. Public (never behind Access).
   { pattern = "onyourfeet.app/_stats", zone_name = "onyourfeet.app" },
+  { pattern = "slowbreath.app/_stats", zone_name = "slowbreath.app" },
 ]
 
 # Storage: Cloudflare D1 (SQLite). Self-host setup is one command:

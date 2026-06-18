@@ -46,18 +46,31 @@ npm run dev                 # wrangler dev (simulates D1 locally)
 
 ## Embed the tracker
 
+Add this to every page (e.g. SvelteKit `src/app.html`). It loads the first-party
+tracker in production and **skips localhost**, so local dev has no 404s:
+
 ```html
-<script src="/_stats" defer></script>
+<script>
+  (function () {
+    var h = location.hostname;
+    if (h === 'localhost' || h === '127.0.0.1' || h.endsWith('.local')) return;
+    var s = document.createElement('script');
+    s.src = '/_stats';
+    s.defer = true;
+    document.head.appendChild(s);
+  })();
+</script>
 ```
 
 ### Custom events
 
-The snippet exposes `hitsonce(name, value?)` for events beyond pageviews:
+`hitsonce(name, value?)` is defined once the tracker loads (production only). **Guard
+calls** so they no-op in local dev:
 
 ```js
-hitsonce('timer_start', 45); // value is optional, e.g. minutes set
-hitsonce('timer_finish', 45);
-hitsonce('breath_cycle'); // no value
+window.hitsonce?.('timer_start', 45); // value optional, e.g. minutes set
+window.hitsonce?.('timer_finish', 45);
+window.hitsonce?.('breath_cycle'); // no value
 ```
 
 Each shows up in the dashboard's Events panel, tallied by name and broken down by value.
