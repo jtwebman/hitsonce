@@ -1,11 +1,10 @@
 import type { IContext } from '../context.ts';
-import { pingDb } from '../data/system.ts';
 
 export interface HealthChecks {
-  db: 'ok' | 'error';
+  store: 'ok' | 'error';
 }
 
 export async function healthCheck(ctx: IContext): Promise<HealthChecks> {
-  if (!ctx.config.dbConfigured) return { db: 'error' };
-  return { db: (await pingDb(ctx)) ? 'ok' : 'error' };
+  if (!ctx.config.storeConfigured) return { store: 'error' };
+  return { store: (await ctx.store.ping()) ? 'ok' : 'error' };
 }

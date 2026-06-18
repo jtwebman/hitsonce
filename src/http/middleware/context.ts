@@ -3,12 +3,13 @@ import type { Env } from '../../env.ts';
 import type { IContext } from '../../context.ts';
 import { getConfig } from '../../config.ts';
 import { createLogger } from '../../logger.ts';
-import { createDb, mainConnectionString } from '../../db/db.ts';
+import { createStore } from '../../data/createStore.ts';
 
 export type Vars = { ctx: IContext };
 
-// Builds the request context (config + per-request logger with a request id + db)
-// and tears the db down after the response. Every route reads it via c.get('ctx').
+// Builds the request context (config + per-request logger with a request id + the
+// storage handle). Every route reads it via c.get('ctx'). D1 is stateless, so
+// there's no connection to tear down.
 export const contextMiddleware: MiddlewareHandler<{
   Bindings: Env;
   Variables: Vars;
@@ -16,19 +17,10 @@ export const contextMiddleware: MiddlewareHandler<{
   const config = getConfig(c.env);
   const reqId = crypto.randomUUID();
   const logger = createLogger(config.logLevel, { reqId });
-  const db = createDb(mainConnectionString(c.env));
+  const store = createStore(c.env);
 
-  c.set('ctx', { config, logger, db, auth: null });
+  c.set('ctx', { config, logger, store });
   c.header('x-request-id', reqId);
 
-  try {
-    await next();
-  } finally {
-    const closing = db.destroy();
-    try {
-      c.executionCtx.waitUntil(closing);
-    } catch {
-      await closing;
-    }
-  }
+  await next();
 };

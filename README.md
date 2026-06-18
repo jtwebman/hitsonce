@@ -4,42 +4,47 @@ Privacy-respecting, self-hostable web analytics for [hitsonce.app](https://hitso
 Real users vs bots, unique visitors, geo / language / timezone / device — first-party,
 no third-party cookies, banner-free by default.
 
-One Cloudflare Worker does both jobs: the **first-party collector** (served on each
-tracked site's own domain at `/_stats`) and the **dashboard + API** (on the app domain).
-Postgres (Neon in prod) via Cloudflare Hyperdrive.
+One Cloudflare Worker does both jobs: the **first-party collector** (served on each tracked
+site's own domain at `/_stats`) and the **dashboard + API** (on the app domain). Storage is
+**Cloudflare D1** (SQLite) out of the box — self-host with one `wrangler d1 create`, no
+external database — and pluggable behind a small `Store` interface.
 
 ## Stack
 
 - **Hono on Cloudflare Workers**, TypeScript + ESM.
-- **Postgres** via **Hyperdrive** using the standard `pg` driver; **Kysely** composes SQL.
+- **Storage** behind a `Store` interface (`src/data/store.ts`); built-in adapter is **D1**
+  (`src/data/stores/d1.ts`). Implement `Store` + wire it in `src/data/createStore.ts` to use
+  Postgres, Analytics Engine, etc.
 - Backend is three layers — **http → app → data** — with a `context` (`config`, `logger`,
-  `db`) threaded as the first argument. Kysely is confined to `src/data` / `src/db`.
-- Migrations are raw SQL in `migrations/`, `YYYYMMDDHHMMSS-desc.sql`, applied in order.
+  `store`) threaded as the first argument. The app/http layers speak domain objects, never SQL.
+- Migrations are SQL in `migrations/` (`wrangler d1 migrations`).
 - Deps pinned to exact versions (`.npmrc` `save-exact=true`).
+
+## Auth
+
+The dashboard is gated by **Cloudflare Access** (Zero Trust) — allow access by email in the
+Zero Trust dashboard; no user accounts, OAuth, or sessions in the app. Every allowed user has
+full access to all domains (single shared account). The **collector is public** — never put
+`/_stats` behind Access.
 
 ## Identity & privacy
 
-- **Cookieless by default:** a server-side daily-rotating `sha256(salt + day + ip + ua)`
-  per domain — no cookie, nothing stored on the device, so no consent banner needed.
-- **Optional per-domain cookie mode** (`identity_mode = 'cookie'`) for cross-session
-  accuracy where the site owner handles consent.
-- Geo (country / region / city / timezone) comes free from Cloudflare's edge (`request.cf`) —
-  no third-party IP database.
+- **Cookieless by default:** a server-side daily-rotating `sha256(salt + day + ip + ua)` per
+  domain — nothing stored on the device, so no consent banner needed.
+- **Optional per-domain cookie mode** for cross-session accuracy (the site owner owns consent).
+- Geo (country / region / city / timezone) comes free from Cloudflare's edge (`request.cf`).
 
 ## Develop
 
 ```bash
-docker compose up -d        # local Postgres 18
 npm install
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/hitsonce npm run migrate
-npm run dev                 # wrangler dev (Worker on :8787)
+npm run migrate:local       # apply migrations to the local D1
+npm run dev                 # wrangler dev (simulates D1 locally)
 ```
 
 `npm run typecheck` · `npm run lint` · `npm run format:check`.
 
 ## Embed the tracker
-
-Add one line to a tracked site (served first-party from its own domain):
 
 ```html
 <script src="/_stats" defer></script>
@@ -47,10 +52,11 @@ Add one line to a tracked site (served first-party from its own domain):
 
 ## Roadmap
 
-- [x] Collector pipeline (ingest, geo, UA → device, bot detection, cookieless hash).
-- [ ] Google OAuth login; accounts / domains management API.
-- [ ] Dashboard (visitors, uniques, top pages/referrers, geo, devices).
-- [ ] Per-site Stripe billing for the hosted version.
+- [x] D1 storage behind a pluggable `Store`; collector pipeline (ingest, geo, UA → device,
+      bot detection, cookieless hash).
+- [ ] Domains API + dashboard (visitors, uniques, top pages/referrers, geo, devices), behind
+      Cloudflare Access.
+- [ ] Optional Postgres / Analytics Engine `Store` adapters; per-site billing for hosted.
 
 ## License
 

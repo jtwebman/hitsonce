@@ -1,6 +1,5 @@
 import type { IContext } from '../context.ts';
-import { getDomainByHost } from '../data/domains.ts';
-import { insertEvent, type NewEvent } from '../data/events.ts';
+import type { NewEvent } from '../data/store.ts';
 import { visitorHash, utcDay } from '../lib/identity.ts';
 import { parseUserAgent } from '../lib/useragent.ts';
 import { isBot } from '../lib/bots.ts';
@@ -35,13 +34,13 @@ export async function getCollectorConfig(
   ctx: IContext,
   hostname: string,
 ): Promise<{ collectorPath: string } | null> {
-  const domain = await getDomainByHost(ctx, hostname);
-  return domain ? { collectorPath: domain.collector_path } : null;
+  const domain = await ctx.store.getDomainByHost(hostname);
+  return domain ? { collectorPath: domain.collectorPath } : null;
 }
 
 // Records one event for the given host. Silently ignores unknown hosts.
 export async function recordEvent(ctx: IContext, input: CollectInput): Promise<{ ok: boolean }> {
-  const domain = await getDomainByHost(ctx, input.hostname);
+  const domain = await ctx.store.getDomainByHost(input.hostname);
   if (!domain) return { ok: false };
 
   const ua = parseUserAgent(input.userAgent);
@@ -62,11 +61,11 @@ export async function recordEvent(ctx: IContext, input: CollectInput): Promise<{
   }
 
   const event: NewEvent = {
-    domain_id: domain.id,
-    visitor_hash: hash,
+    domainId: domain.id,
+    visitorHash: hash,
     name: (input.beacon.n ?? 'pageview').slice(0, 64),
     path: input.beacon.path ? input.beacon.path.slice(0, 1024) : null,
-    referrer_host: referrerHost,
+    referrerHost,
     country: input.geo.country,
     region: input.geo.region,
     city: input.geo.city,
@@ -75,11 +74,11 @@ export async function recordEvent(ctx: IContext, input: CollectInput): Promise<{
     browser: ua.browser,
     os: ua.os,
     device: ua.device,
-    screen_w: typeof input.beacon.w === 'number' ? input.beacon.w : null,
-    screen_h: typeof input.beacon.h === 'number' ? input.beacon.h : null,
-    is_bot: isBot(input.userAgent),
+    screenW: typeof input.beacon.w === 'number' ? input.beacon.w : null,
+    screenH: typeof input.beacon.h === 'number' ? input.beacon.h : null,
+    isBot: isBot(input.userAgent),
   };
 
-  await insertEvent(ctx, event);
+  await ctx.store.insertEvent(event);
   return { ok: true };
 }

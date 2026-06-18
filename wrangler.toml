@@ -7,25 +7,23 @@ compatibility_flags = ["nodejs_compat"]
 # work (Harman) account. (Account IDs are not secret — safe to commit.)
 account_id = "7001118f85b48a64b8239b870e497802"
 
-# HitsOnce is ONE Worker serving two roles on different routes:
-#   1. The first-party collector — route the collector path on each tracked zone here:
-#        routes = [{ pattern = "jtwebman.com/_stats", zone_name = "jtwebman.com" }]
-#   2. The dashboard + API on the app domain (set at deploy, once the zone exists):
-#        routes = [{ pattern = "hitsonce.app/*", custom_domain = true }]
+# One Worker, two roles set by route at deploy time:
+#   - Dashboard/API on the app domain, gated by Cloudflare Access (Zero Trust):
+#       routes = [{ pattern = "hitsonce.app/*", custom_domain = true }]
+#     Create an Access application over hitsonce.app and allow your email(s).
+#   - The collector, served first-party on each tracked zone (PUBLIC — never behind
+#     Access, or it would block your visitors):
+#       routes = [{ pattern = "jtwebman.com/_stats", zone_name = "jtwebman.com" }]
 
-# Postgres via Hyperdrive (Cloudflare's connection pooler). Create the config once:
-#   wrangler hyperdrive create hitsonce \
-#     --connection-string="postgres://USER:PASS@HOST:5432/hitsonce" \
-#     --caching-disabled        # read-after-write consistency; we just want the pooling
-# then paste the returned id below. `localConnectionString` is used by `wrangler dev`.
-[[hyperdrive]]
-binding = "HYPERDRIVE"
-id = "<fill-from: wrangler hyperdrive create hitsonce ...>"
-localConnectionString = "postgresql://postgres:postgres@localhost:5432/hitsonce"
-
-# Daily partition maintenance: ensure the current + next month's events partition exist.
-[triggers]
-crons = ["0 0 * * *"]
+# Storage: Cloudflare D1 (SQLite). Self-host setup is one command:
+#   wrangler d1 create hitsonce        # then paste the returned database_id below
+#   npm run migrate:local              # apply migrations locally (wrangler dev)
+#   npm run migrate                    # apply migrations to the remote D1
+[[d1_databases]]
+binding = "DB"
+database_name = "hitsonce"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
 
 [vars]
 # Browser origins allowed by CORS (the dashboard). Override per environment.

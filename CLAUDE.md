@@ -1,31 +1,38 @@
 # HitsOnce — repo guide
 
-Privacy-respecting, self-hostable web analytics. **One Cloudflare Worker** serves two roles
-on different routes: the **first-party collector** (`/_stats` on each tracked domain) and the
-**dashboard + API** (on the app domain). Conventions mirror `~/projects/fixtext`.
+Privacy-respecting, self-hostable web analytics. **One Cloudflare Worker** serves two roles by
+route: the **first-party collector** (`/_stats` on each tracked domain, public) and the
+**dashboard + API** (on the app domain, gated by Cloudflare Access). Layering conventions
+mirror `~/projects/fixtext`; storage is intentionally pluggable.
 
 ## Stack
 
-- **Hono on Cloudflare Workers**, TypeScript + ESM. Imports use explicit `.ts` specifiers
-  (Node type-stripping for scripts; wrangler bundles the Worker). No `.mjs`.
-- **DB:** Postgres (Neon in prod) via **Cloudflare Hyperdrive** (`HYPERDRIVE` binding) using a
-  standard `pg` driver. **Kysely** composes SQL. Migrations are raw SQL in `migrations/`,
-  `YYYYMMDDHHMMSS-desc.sql`, applied in order — `npm run migrate:new -- "desc"`.
-- **Local DB:** `docker compose up -d` (Postgres 18). Migrate with
-  `DATABASE_URL=postgres://postgres:postgres@localhost:5432/hitsonce npm run migrate`.
+- **Hono on Cloudflare Workers**, TypeScript + ESM. Imports use explicit `.ts` specifiers. No `.mjs`.
+- **Storage:** a `Store` interface (`src/data/store.ts`) backed by **Cloudflare D1** (SQLite)
+  in `src/data/stores/d1.ts`. `src/data/createStore.ts` is the one place that picks a backend —
+  implement `Store` to add Postgres / Analytics Engine / etc. The app/http layers speak domain
+  objects (camelCase), never SQL.
+- **Migrations:** SQL in `migrations/` applied with `wrangler d1 migrations apply` (D1 tracks
+  applied files). `npm run migrate:local` (dev) / `npm run migrate` (remote).
 - Deps pinned to exact versions (`.npmrc` `save-exact=true`).
 
 ## Backend architecture (three layers + context)
 
-Requests flow **http → app → data**, with a context (`IContext`: `config`, `logger`, `db`,
-`auth`) threaded as the first argument into every function.
+Requests flow **http → app → data**, with a context (`IContext`: `config`, `logger`, `store`)
+threaded as the first argument.
 
 - `src/http/` — Hono routes + middleware. Validates with Zod, builds the context, calls the
   **app layer only**.
-- `src/app/` — business logic. Calls data-layer functions; never imports Hono or touches `ctx.db`.
-- `src/data/` + `src/db/` — all SQL. **Kysely is confined here** (eslint forbids importing
-  `kysely` elsewhere). `src/db/schema.ts` is the typed Kysely `Database`; keep it in sync with
-  `migrations/`.
+- `src/app/` — business logic. Calls `ctx.store.*`; never touches a storage backend directly.
+- `src/data/` — the `Store` interface + adapters (`stores/`). SQL/backend specifics live here.
+
+## Auth & tenancy
+
+- The dashboard is gated by **Cloudflare Access** (email allowlist in Zero Trust). No
+  user/account tables, no OAuth, no sessions. A protected route reads the verified email from
+  the `Cf-Access-Jwt-Assertion` header (verify against the team JWKS + `aud`).
+- **Single shared account:** every allowed user has full access to all domains.
+- The collector is **public** — never behind Access.
 
 ## Identity & privacy
 
@@ -37,12 +44,4 @@ Requests flow **http → app → data**, with a context (`IContext`: `config`, `
 
 - `npm run dev` — `wrangler dev`. `npm run deploy` — deploy the Worker.
 - `npm run typecheck` / `npm run lint` / `npm run format:check`.
-- `DATABASE_URL=… npm run migrate` — apply migrations.
-
-## Conventions
-
-- TypeScript everywhere; respect the layers. The context is always the first argument.
-  Kysely never leaves `src/data` / `src/db`.
-- `events` is range-partitioned by month; the daily cron (`create_events_month`) pre-creates
-  the current + next month. A DEFAULT partition is the safety net.
-- The collector is public (no auth). The dashboard/API is auth'd (Google OAuth, planned).
+- `npm run migrate:local` / `npm run migrate` — apply D1 migrations.

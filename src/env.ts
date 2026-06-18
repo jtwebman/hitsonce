@@ -2,18 +2,13 @@
 // the runtime environment; only the http layer reads this directly (to build the
 // request context). Everything below reads ctx.config instead.
 export interface Env {
-  HYPERDRIVE: Hyperdrive;
+  /** Cloudflare D1 (SQLite) — the built-in storage backend. */
+  DB: D1Database;
   // vars (optional; defaulted in getConfig)
   ENVIRONMENT?: string;
   LOG_LEVEL?: string;
   /** Comma-separated browser origins allowed by CORS (the dashboard). */
   WEB_ORIGINS?: string;
-  /** Public base URL of the dashboard/app (used for OAuth redirects). */
+  /** Public base URL of the dashboard/app. */
   APP_URL?: string;
-  // secrets
-  /** HS256 signing secret for session JWTs. */
-  JWT_SECRET?: string;
-  /** Google OAuth client credentials (dashboard login). */
-  GOOGLE_CLIENT_ID?: string;
-  GOOGLE_CLIENT_SECRET?: string;
 }
