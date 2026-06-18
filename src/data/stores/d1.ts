@@ -40,6 +40,36 @@ function toSqlite(iso: string): string {
   return iso.slice(0, 19).replace('T', ' ');
 }
 
+const INSERT_EVENT_SQL = `insert or ignore into events
+  (id, domain_id, visitor_hash, name, value, path, referrer_host, country, region,
+   city, timezone, language, browser, os, device, screen_w, screen_h, is_bot)
+ values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+// Bind a NewEvent to the insert statement. The id is supplied (not generated here)
+// so a retried queue message inserts the same row and INSERT OR IGNORE dedupes it.
+function bindEvent(stmt: D1PreparedStatement, e: NewEvent): D1PreparedStatement {
+  return stmt.bind(
+    e.id,
+    e.domainId,
+    e.visitorHash,
+    e.name,
+    e.value,
+    e.path,
+    e.referrerHost,
+    e.country,
+    e.region,
+    e.city,
+    e.timezone,
+    e.language,
+    e.browser,
+    e.os,
+    e.device,
+    e.screenW,
+    e.screenH,
+    e.isBot ? 1 : 0,
+  );
+}
+
 export function createD1Store(db: D1Database): Store {
   return {
     async ping(): Promise<boolean> {
@@ -90,34 +120,13 @@ export function createD1Store(db: D1Database): Store {
     },
 
     async insertEvent(e: NewEvent): Promise<void> {
-      await db
-        .prepare(
-          `insert into events
-            (id, domain_id, visitor_hash, name, value, path, referrer_host, country, region,
-             city, timezone, language, browser, os, device, screen_w, screen_h, is_bot)
-           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .bind(
-          crypto.randomUUID(),
-          e.domainId,
-          e.visitorHash,
-          e.name,
-          e.value,
-          e.path,
-          e.referrerHost,
-          e.country,
-          e.region,
-          e.city,
-          e.timezone,
-          e.language,
-          e.browser,
-          e.os,
-          e.device,
-          e.screenW,
-          e.screenH,
-          e.isBot ? 1 : 0,
-        )
-        .run();
+      await bindEvent(db.prepare(INSERT_EVENT_SQL), e).run();
+    },
+
+    async insertEvents(events: NewEvent[]): Promise<void> {
+      if (!events.length) return;
+      const stmt = db.prepare(INSERT_EVENT_SQL);
+      await db.batch(events.map((e) => bindEvent(stmt, e)));
     },
 
     async getStats(q: StatsQuery): Promise<Stats> {

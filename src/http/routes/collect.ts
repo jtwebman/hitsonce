@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Env } from '../../env.ts';
 import type { Vars } from '../middleware/context.ts';
-import { getCollectorConfig, recordEvent, type Beacon } from '../../app/collect.ts';
+import { getCollectorConfig, buildEvent, saveEvent, type Beacon } from '../../app/collect.ts';
 import { renderTracker } from '../../lib/tracker.ts';
 
 // The first-party collector. GET serves the tracker snippet; POST ingests a beacon.
@@ -33,7 +33,7 @@ collect.post('/_stats', async (c) => {
   }
 
   const cf = c.req.raw.cf as IncomingRequestCfProperties | undefined;
-  await recordEvent(ctx, {
+  const event = await buildEvent(ctx, {
     hostname: url.hostname,
     ip: c.req.header('cf-connecting-ip') ?? '',
     userAgent: c.req.header('user-agent') ?? '',
@@ -45,6 +45,12 @@ collect.post('/_stats', async (c) => {
     },
     beacon,
   });
+
+  // Enqueue for batched insertion; fall back to a direct write if the queue is absent.
+  if (event) {
+    if (c.env.EVENTS) await c.env.EVENTS.send(event);
+    else await saveEvent(ctx, event);
+  }
 
   return c.body(null, 204);
 });

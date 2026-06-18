@@ -41,3 +41,16 @@ APP_URL = "https://hitsonce.app"
 # is in the JWT signature). AUD comes from the Access application.
 ACCESS_TEAM_DOMAIN = "jtanna.cloudflareaccess.com"
 ACCESS_AUD = "ca44468e54f69509456ca99283719b63a3c2f44a3bcdfbcb85c49377d2a9c943"
+
+# Event ingestion queue: the collector enqueues events and the queue() consumer
+# bulk-inserts them, so a traffic spike becomes a few batched writes instead of one
+# D1 write per hit. If the binding is absent, the collector falls back to a direct write.
+[[queues.producers]]
+queue = "hitsonce-events"
+binding = "EVENTS"
+
+[[queues.consumers]]
+queue = "hitsonce-events"
+max_batch_size = 100
+max_batch_timeout = 5
+max_retries = 3

@@ -39,10 +39,12 @@ export async function getCollectorConfig(
   return domain ? { collectorPath: domain.collectorPath } : null;
 }
 
-// Records one event for the given host. Silently ignores unknown hosts.
-export async function recordEvent(ctx: IContext, input: CollectInput): Promise<{ ok: boolean }> {
+// Resolve a beacon into a fully-formed event (domain lookup + cookieless identity +
+// UA/geo), or null if the host isn't tracked. The id is generated here so a retried
+// queue message dedupes on insert.
+export async function buildEvent(ctx: IContext, input: CollectInput): Promise<NewEvent | null> {
   const domain = await ctx.store.getDomainByHost(input.hostname);
-  if (!domain) return { ok: false };
+  if (!domain) return null;
 
   const ua = parseUserAgent(input.userAgent);
   const hash = await visitorHash({
@@ -61,7 +63,8 @@ export async function recordEvent(ctx: IContext, input: CollectInput): Promise<{
     }
   }
 
-  const event: NewEvent = {
+  return {
+    id: crypto.randomUUID(),
     domainId: domain.id,
     visitorHash: hash,
     name: (input.beacon.n ?? 'pageview').slice(0, 64),
@@ -80,7 +83,10 @@ export async function recordEvent(ctx: IContext, input: CollectInput): Promise<{
     screenH: typeof input.beacon.h === 'number' ? input.beacon.h : null,
     isBot: isBot(input.userAgent),
   };
+}
 
+// Direct write — the fallback used when the queue binding is absent (e.g. local dev).
+// In production the collector enqueues and the queue() consumer bulk-inserts instead.
+export async function saveEvent(ctx: IContext, event: NewEvent): Promise<void> {
   await ctx.store.insertEvent(event);
-  return { ok: true };
 }

@@ -123,6 +123,23 @@ The tracked hostname can be any domain or **subdomain** whose Cloudflare zone is
 3. **Embed the snippet** (see "Embed the tracker") on the site and deploy it. Pageviews flow
    automatically; fire custom events with `window.hitsonce?.(name, value?)`.
 
+## Hardening
+
+The collector at `/_stats` is intentionally **public** — it has to accept beacons from
+anyone visiting a tracked page. Keep it safe:
+
+- **Rate-limit `/_stats`.** Add a Cloudflare **Rate Limiting** rule on each tracked zone,
+  matching path `/_stats` — e.g. **500 requests / 1 hour / per IP**, action _Block_. It runs
+  at the edge before the Worker, so it costs nothing and caps flooding. **Strongly recommended
+  for any self-hosted deployment.**
+- **Batched writes.** The collector enqueues events and a queue consumer bulk-inserts them, so
+  a traffic spike becomes a few batched D1 writes instead of one per hit (Queues require the
+  Workers Paid plan; without the binding the collector falls back to direct writes).
+
+Beacons are forgeable (true of any client-side analytics) — the rate limit, plus optional
+Origin/Referer checks, are the practical defense. Treat the numbers as "good enough," not
+audit-grade.
+
 ## Roadmap
 
 - [x] D1 storage behind a pluggable `Store`; collector pipeline (ingest, geo, UA → device,

@@ -22,6 +22,8 @@ export interface NewDomain {
 }
 
 export interface NewEvent {
+  /** Generated at ingest so retried queue messages dedupe (INSERT OR IGNORE). */
+  id: string;
   domainId: string;
   visitorHash: string;
   name: string;
@@ -90,5 +92,7 @@ export interface Store {
   createDomain(input: NewDomain): Promise<Domain>;
   deleteDomain(id: string): Promise<void>;
   insertEvent(event: NewEvent): Promise<void>;
+  /** Bulk insert a batch of events (used by the queue consumer). Idempotent by id. */
+  insertEvents(events: NewEvent[]): Promise<void>;
   getStats(query: StatsQuery): Promise<Stats>;
 }
