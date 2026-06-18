@@ -5,6 +5,8 @@ import { getConfig } from '../config.ts';
 import { contextMiddleware, type Vars } from './middleware/context.ts';
 import { health } from './routes/health.ts';
 import { collect } from './routes/collect.ts';
+import { domainRoutes } from './routes/domains.ts';
+import { statsRoutes } from './routes/stats.ts';
 
 // One Worker, two roles: the first-party collector (served on tracked zones) and
 // the dashboard/API (on the app domain). CORS is for the dashboard; the collector
@@ -28,6 +30,8 @@ export function createHttpApp() {
   app.get('/', (c) => c.json({ service: 'hitsonce' }));
   app.route('/', health);
   app.route('/', collect);
+  app.route('/', domainRoutes);
+  app.route('/', statsRoutes);
 
   app.notFound((c) => c.json({ error: 'not_found' }, 404));
 

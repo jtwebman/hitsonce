@@ -40,11 +40,43 @@ export interface NewEvent {
   isBot: boolean;
 }
 
+// Stats query window. `from`/`to` are ISO-8601 UTC strings; `to` is exclusive.
+export interface StatsQuery {
+  domainId: string;
+  from: string;
+  to: string;
+  includeBots?: boolean;
+}
+
+export interface CountBucket {
+  key: string;
+  count: number;
+}
+
+export interface DayBucket {
+  day: string;
+  pageviews: number;
+  visitors: number;
+}
+
+export interface Stats {
+  pageviews: number;
+  visitors: number;
+  byDay: DayBucket[];
+  topPages: CountBucket[];
+  topReferrers: CountBucket[];
+  countries: CountBucket[];
+  devices: CountBucket[];
+  browsers: CountBucket[];
+}
+
 export interface Store {
   /** Cheap liveness check for /health. */
   ping(): Promise<boolean>;
   getDomainByHost(hostname: string): Promise<Domain | null>;
   listDomains(): Promise<Domain[]>;
   createDomain(input: NewDomain): Promise<Domain>;
+  deleteDomain(id: string): Promise<void>;
   insertEvent(event: NewEvent): Promise<void>;
+  getStats(query: StatsQuery): Promise<Stats>;
 }

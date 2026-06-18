@@ -1,6 +1,6 @@
 # HitsOnce
 
-Privacy-respecting, self-hostable web analytics for [hitsonce.app](https://hitsonce.app).
+Self-hosted, open-source web analytics you run on your own Cloudflare account.
 Real users vs bots, unique visitors, geo / language / timezone / device — first-party,
 no third-party cookies, banner-free by default.
 
@@ -54,9 +54,10 @@ npm run dev                 # wrangler dev (simulates D1 locally)
 
 - [x] D1 storage behind a pluggable `Store`; collector pipeline (ingest, geo, UA → device,
       bot detection, cookieless hash).
-- [ ] Domains API + dashboard (visitors, uniques, top pages/referrers, geo, devices), behind
-      Cloudflare Access.
-- [ ] Optional Postgres / Analytics Engine `Store` adapters; per-site billing for hosted.
+- [x] Domains + stats API behind Cloudflare Access.
+- [ ] Dashboard UI (visitors, uniques, top pages/referrers, geo, devices).
+- [ ] Auto-provision the `/_stats` Worker route on your zones when you add a domain.
+- [ ] Optional Postgres / Analytics Engine `Store` adapters.
 
 ## License
 

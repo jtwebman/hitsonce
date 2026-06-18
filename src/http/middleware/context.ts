@@ -19,7 +19,7 @@ export const contextMiddleware: MiddlewareHandler<{
   const logger = createLogger(config.logLevel, { reqId });
   const store = createStore(c.env);
 
-  c.set('ctx', { config, logger, store });
+  c.set('ctx', { config, logger, store, auth: null });
   c.header('x-request-id', reqId);
 
   await next();

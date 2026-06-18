@@ -1,4 +1,12 @@
-import type { Domain, NewDomain, NewEvent, Store } from '../store.ts';
+import type {
+  CountBucket,
+  Domain,
+  NewDomain,
+  NewEvent,
+  Stats,
+  StatsQuery,
+  Store,
+} from '../store.ts';
 
 // Built-in storage adapter: Cloudflare D1 (SQLite at the edge). One `wrangler d1
 // create` to self-host — no external database. Maps snake_case rows ↔ camelCase
@@ -24,6 +32,12 @@ function toDomain(r: DomainRow): Domain {
     salt: r.salt,
     createdAt: r.created_at,
   };
+}
+
+// ISO-8601 (e.g. 2026-06-17T12:00:00.000Z) → SQLite's 'YYYY-MM-DD HH:MM:SS' so it
+// compares directly against `ts` (stored via datetime('now')) and uses the index.
+function toSqlite(iso: string): string {
+  return iso.slice(0, 19).replace('T', ' ');
 }
 
 export function createD1Store(db: D1Database): Store {
@@ -71,6 +85,10 @@ export function createD1Store(db: D1Database): Store {
       return toDomain(row);
     },
 
+    async deleteDomain(id: string): Promise<void> {
+      await db.prepare('delete from domains where id = ?').bind(id).run();
+    },
+
     async insertEvent(e: NewEvent): Promise<void> {
       await db
         .prepare(
@@ -99,6 +117,50 @@ export function createD1Store(db: D1Database): Store {
           e.isBot ? 1 : 0,
         )
         .run();
+    },
+
+    async getStats(q: StatsQuery): Promise<Stats> {
+      const from = toSqlite(q.from);
+      const to = toSqlite(q.to);
+      const botClause = q.includeBots ? '' : ' and is_bot = 0';
+      const where = `where domain_id = ? and ts >= ? and ts < ?${botClause}`;
+      const args = [q.domainId, from, to] as const;
+
+      const totals = await db
+        .prepare(`select count(*) as pv, count(distinct visitor_hash) as uv from events ${where}`)
+        .bind(...args)
+        .first<{ pv: number; uv: number }>();
+
+      const day = await db
+        .prepare(
+          `select date(ts) as day, count(*) as pv, count(distinct visitor_hash) as uv
+           from events ${where} group by date(ts) order by day`,
+        )
+        .bind(...args)
+        .all<{ day: string; pv: number; uv: number }>();
+
+      // `col` is one of a fixed internal set of column names — never user input.
+      const top = async (col: string): Promise<CountBucket[]> => {
+        const { results } = await db
+          .prepare(
+            `select ${col} as k, count(*) as c from events ${where}
+             and ${col} is not null and ${col} <> '' group by ${col} order by c desc limit 10`,
+          )
+          .bind(...args)
+          .all<{ k: string; c: number }>();
+        return results.map((r) => ({ key: r.k, count: r.c }));
+      };
+
+      return {
+        pageviews: totals?.pv ?? 0,
+        visitors: totals?.uv ?? 0,
+        byDay: day.results.map((r) => ({ day: r.day, pageviews: r.pv, visitors: r.uv })),
+        topPages: await top('path'),
+        topReferrers: await top('referrer_host'),
+        countries: await top('country'),
+        devices: await top('device'),
+        browsers: await top('browser'),
+      };
     },
   };
 }

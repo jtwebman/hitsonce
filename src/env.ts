@@ -11,4 +11,8 @@ export interface Env {
   WEB_ORIGINS?: string;
   /** Public base URL of the dashboard/app. */
   APP_URL?: string;
+  /** Cloudflare Access (Zero Trust) team domain, e.g. "myteam.cloudflareaccess.com". */
+  ACCESS_TEAM_DOMAIN?: string;
+  /** Cloudflare Access application AUD tag. Both must be set to enforce Access. */
+  ACCESS_AUD?: string;
 }
