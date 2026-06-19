@@ -24,8 +24,8 @@ export default {
       batch.retryAll(); // idempotent: events INSERT OR IGNORE by id
     }
   },
-  // Daily retention cron: prune raw events older than the retention window so storage
-  // stays bounded and queries stay fast.
+  // Maintenance cron (every 5 min): aggregate raw → 5m/1h/1d rollups, enforce rollup
+  // retention, and prune raw events past the retention window.
   async scheduled(
     _controller: ScheduledController,
     env: Env,
@@ -37,11 +37,17 @@ export default {
     ctx.waitUntil(
       (async () => {
         try {
+          await store.maintainRollups(config.timezone);
+          await store.pruneRollups();
           const cutoff = new Date(Date.now() - config.retentionDays * 86_400_000).toISOString();
-          const deleted = await store.pruneEventsBefore(cutoff);
-          logger.info('retention prune complete', { retentionDays: config.retentionDays, deleted });
+          const deletedRaw = await store.pruneEventsBefore(cutoff);
+          logger.info('maintenance complete', {
+            deletedRaw,
+            timezone: config.timezone,
+            timezoneDst: config.timezoneDst,
+          });
         } catch (err) {
-          logger.error(err, { during: 'retention cron' });
+          logger.error(err, { during: 'maintenance cron' });
         }
       })(),
     );

@@ -1,6 +1,7 @@
 import type { IContext } from '../context.ts';
 import type { NewEvent } from '../data/store.ts';
-import { visitorHash, utcDay } from '../lib/identity.ts';
+import { visitorHash } from '../lib/identity.ts';
+import { civilDay } from '../lib/time.ts';
 import { parseUserAgent } from '../lib/useragent.ts';
 import { isBot } from '../lib/bots.ts';
 
@@ -47,9 +48,12 @@ export async function buildEvent(ctx: IContext, input: CollectInput): Promise<Ne
   if (!domain) return null;
 
   const ua = parseUserAgent(input.userAgent);
+  // The cookieless hash rotates on the configured timezone's civil day, so it changes
+  // at local midnight (the daily rollup rolls over on the same boundary, computed from
+  // `ts` at rollup time — nothing per-event is stored for it).
   const hash = await visitorHash({
     salt: domain.salt,
-    day: utcDay(),
+    day: civilDay(new Date(), ctx.config.timezone),
     ip: input.ip,
     ua: input.userAgent,
   });

@@ -7,6 +7,7 @@ import type {
   StatsQuery,
   Store,
 } from '../store.ts';
+import { dayStartUTC } from '../../lib/time.ts';
 
 // Built-in storage adapter: Cloudflare D1 (SQLite at the edge). One `wrangler d1
 // create` to self-host — no external database. Maps snake_case rows ↔ camelCase
@@ -204,6 +205,137 @@ export function createD1Store(db: D1Database): Store {
     async pruneEventsBefore(cutoff: string): Promise<number> {
       const res = await db.prepare('delete from events where ts < ?').bind(toSqlite(cutoff)).run();
       return res.meta.changes ?? 0;
+    },
+
+    async maintainRollups(timezone: string): Promise<void> {
+      const now = Date.now();
+      const dims: [string, string][] = [
+        ['path', 'path'],
+        ['referrer', 'referrer_host'],
+        ['country', 'country'],
+        ['device', 'device'],
+        ['browser', 'browser'],
+      ];
+      // INSERT OR REPLACE (no delete) is idempotent here because raw is append-only
+      // within the reroll window: each run recomputes every touched bucket from raw
+      // and overwrites it, late/queued events get picked up, and no bucket can lose
+      // events — so nothing goes stale. Buckets outside the window stay finalized.
+      const stmts: D1PreparedStatement[] = [];
+
+      // Fixed-width tiers (5m, 1h): timezone-independent. Bucket = ts floored to the
+      // grain. Re-aggregate a recent window so late/queued events are caught.
+      const fixed = [
+        { grain: '5m', secs: 300, reroll: 2 * 3600 },
+        { grain: '1h', secs: 3600, reroll: 6 * 3600 },
+      ];
+      for (const g of fixed) {
+        const grainMs = g.secs * 1000;
+        // Align the window start to the grain so boundary buckets aggregate fully.
+        const from = toSqlite(
+          new Date(Math.floor((now - g.reroll * 1000) / grainMs) * grainMs).toISOString(),
+        );
+        // `g.secs` is an internal numeric constant; never user input.
+        const bucket = `datetime((cast(strftime('%s', ts) as integer) / ${g.secs}) * ${g.secs}, 'unixepoch')`;
+        stmts.push(
+          db
+            .prepare(
+              `insert or replace into rollup_totals (domain_id, grain, bucket, pageviews, uniques)
+               select domain_id, ?, ${bucket},
+                      sum(case when name = 'pageview' then 1 else 0 end),
+                      count(distinct case when name = 'pageview' then visitor_hash end)
+               from events where is_bot = 0 and ts >= ?
+               group by domain_id, ${bucket}`,
+            )
+            .bind(g.grain, from),
+        );
+        for (const [dim, col] of dims) {
+          stmts.push(
+            db
+              .prepare(
+                `insert or replace into rollup_dim (domain_id, grain, bucket, dim, key, count)
+                 select domain_id, ?, ${bucket}, ?, ${col}, count(*)
+                 from events
+                 where is_bot = 0 and name = 'pageview' and ts >= ? and ${col} is not null and ${col} <> ''
+                 group by domain_id, ${bucket}, ${col}`,
+              )
+              .bind(g.grain, dim, from),
+          );
+        }
+        stmts.push(
+          db
+            .prepare(
+              `insert or replace into rollup_event (domain_id, grain, bucket, name, value, count)
+               select domain_id, ?, ${bucket}, name, coalesce(value, ''), count(*)
+               from events where is_bot = 0 and name <> 'pageview' and ts >= ?
+               group by domain_id, ${bucket}, name, value`,
+            )
+            .bind(g.grain, from),
+        );
+      }
+
+      // Daily tier: bucket by civil day in `timezone`. SQLite can't apply IANA tz
+      // rules, so enumerate the civil days the reroll window spans (~3) and roll each
+      // over an explicit [dayStart, nextDayStart) UTC range. The stored bucket is the
+      // UTC instant the civil day began — DST-aware (a transition day is 23h/25h) and
+      // needing no per-event column.
+      let cursor = dayStartUTC(new Date(now - 50 * 3600 * 1000), timezone);
+      while (cursor.getTime() <= now) {
+        // +26h then re-derive lands in the next civil day across any DST gap/overlap.
+        const next = dayStartUTC(new Date(cursor.getTime() + 26 * 3600 * 1000), timezone);
+        const lo = toSqlite(cursor.toISOString());
+        const hi = toSqlite(next.toISOString());
+        stmts.push(
+          db
+            .prepare(
+              `insert or replace into rollup_totals (domain_id, grain, bucket, pageviews, uniques)
+               select domain_id, '1d', ?,
+                      sum(case when name = 'pageview' then 1 else 0 end),
+                      count(distinct case when name = 'pageview' then visitor_hash end)
+               from events where is_bot = 0 and ts >= ? and ts < ?
+               group by domain_id`,
+            )
+            .bind(lo, lo, hi),
+        );
+        for (const [dim, col] of dims) {
+          stmts.push(
+            db
+              .prepare(
+                `insert or replace into rollup_dim (domain_id, grain, bucket, dim, key, count)
+                 select domain_id, '1d', ?, ?, ${col}, count(*)
+                 from events
+                 where is_bot = 0 and name = 'pageview' and ts >= ? and ts < ? and ${col} is not null and ${col} <> ''
+                 group by domain_id, ${col}`,
+              )
+              .bind(lo, dim, lo, hi),
+          );
+        }
+        stmts.push(
+          db
+            .prepare(
+              `insert or replace into rollup_event (domain_id, grain, bucket, name, value, count)
+               select domain_id, '1d', ?, name, coalesce(value, ''), count(*)
+               from events where is_bot = 0 and name <> 'pageview' and ts >= ? and ts < ?
+               group by domain_id, name, value`,
+            )
+            .bind(lo, lo, hi),
+        );
+        cursor = next;
+      }
+
+      await db.batch(stmts);
+    },
+
+    async pruneRollups(): Promise<void> {
+      const cut5m = toSqlite(new Date(Date.now() - 30 * 86_400_000).toISOString());
+      const cut1h = toSqlite(new Date(Date.now() - 90 * 86_400_000).toISOString());
+      await db.batch([
+        db.prepare("delete from rollup_totals where grain = '5m' and bucket < ?").bind(cut5m),
+        db.prepare("delete from rollup_dim where grain = '5m' and bucket < ?").bind(cut5m),
+        db.prepare("delete from rollup_event where grain = '5m' and bucket < ?").bind(cut5m),
+        db.prepare("delete from rollup_totals where grain = '1h' and bucket < ?").bind(cut1h),
+        db.prepare("delete from rollup_dim where grain = '1h' and bucket < ?").bind(cut1h),
+        db.prepare("delete from rollup_event where grain = '1h' and bucket < ?").bind(cut1h),
+      ]);
     },
   };
 }

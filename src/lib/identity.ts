@@ -1,10 +1,8 @@
 // Cookieless visitor identity: a per-domain, per-day salted hash of IP + user agent.
 // Nothing is stored on the device and the day rotates, so it isn't durably
-// identifying — the basis for banner-free analytics.
-
-export function utcDay(date = new Date()): string {
-  return date.toISOString().slice(0, 10);
-}
+// identifying — the basis for banner-free analytics. The `day` rotates on the
+// configured timezone's civil day (see lib/time.ts), so the hash changes at local
+// midnight rather than UTC midnight.
 
 export async function visitorHash(p: {
   salt: string;

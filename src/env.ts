@@ -18,6 +18,12 @@ export interface Env {
   APP_URL?: string;
   /** Days of raw events to keep; the daily cron prunes older ones. Default 365. */
   RETENTION_DAYS?: string;
+  /**
+   * IANA timezone (e.g. "America/Los_Angeles") whose civil day defines the daily
+   * rollover and the cookieless hash rotation. Default "UTC". Timestamps are always
+   * stored UTC; this only moves the day boundary. Invalid names fall back to UTC.
+   */
+  TIMEZONE?: string;
   /** Cloudflare Access (Zero Trust) team domain, e.g. "myteam.cloudflareaccess.com". */
   ACCESS_TEAM_DOMAIN?: string;
   /** Cloudflare Access application AUD tag. Both must be set to enforce Access. */

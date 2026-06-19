@@ -1,4 +1,5 @@
 import type { Env } from './env.ts';
+import { normalizeTimeZone, observesDst } from './lib/time.ts';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -18,12 +19,21 @@ export interface IConfig {
   access: { teamDomain: string | undefined; aud: string | undefined };
   /** Days of raw events to retain (the daily cron prunes older ones). */
   retentionDays: number;
+  /**
+   * IANA timezone whose civil day defines the daily rollover and the cookieless
+   * hash rotation. `ts` is always stored UTC; this only sets the day boundary.
+   * Defaults to UTC. DST zones have 23h/25h days on transitions (see timezoneDst).
+   */
+  timezone: string;
+  /** Whether `timezone` observes DST (so two days a year aren't a flat 24h). */
+  timezoneDst: boolean;
 }
 
 const LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 
 export function getConfig(env: Env): IConfig {
   const level = (env.LOG_LEVEL ?? '').toLowerCase();
+  const timezone = normalizeTimeZone(env.TIMEZONE);
   return {
     environment: env.ENVIRONMENT ?? 'development',
     logLevel: LEVELS.includes(level as LogLevel) ? (level as LogLevel) : 'info',
@@ -35,5 +45,7 @@ export function getConfig(env: Env): IConfig {
     appUrl: env.APP_URL ?? 'https://hitsonce.app',
     access: { teamDomain: env.ACCESS_TEAM_DOMAIN, aud: env.ACCESS_AUD },
     retentionDays: ((n) => (Number.isFinite(n) && n > 0 ? n : 365))(Number(env.RETENTION_DAYS)),
+    timezone,
+    timezoneDst: observesDst(timezone),
   };
 }

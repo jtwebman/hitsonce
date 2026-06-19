@@ -41,6 +41,12 @@ APP_URL = "https://hitsonce.app"
 # is in the JWT signature). AUD comes from the Access application.
 ACCESS_TEAM_DOMAIN = "jtanna.cloudflareaccess.com"
 ACCESS_AUD = "ca44468e54f69509456ca99283719b63a3c2f44a3bcdfbcb85c49377d2a9c943"
+# IANA timezone whose civil day defines the daily rollover AND the cookieless hash
+# rotation (a new per-day hash at local midnight). Event timestamps are always stored
+# in UTC — this only moves the day boundary. Default is "UTC"; set your own zone, e.g.
+# "Europe/London". NOTE: for a DST zone the two transition days aren't 24h — the daily
+# bucket is 23h on spring-forward and 25h on fall-back. Invalid names fall back to UTC.
+TIMEZONE = "America/Los_Angeles"
 
 # Event ingestion queue: the collector enqueues events and the queue() consumer
 # bulk-inserts them, so a traffic spike becomes a few batched writes instead of one
@@ -55,6 +61,7 @@ max_batch_size = 100
 max_batch_timeout = 5
 max_retries = 3
 
-# Daily retention cron — prunes raw events older than RETENTION_DAYS (default 365).
+# Maintenance cron (every 5 min): aggregate raw -> 5m/1h/1d rollups, enforce rollup
+# retention, and prune raw events older than RETENTION_DAYS.
 [triggers]
-crons = ["0 4 * * *"]
+crons = ["*/5 * * * *"]

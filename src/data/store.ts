@@ -97,4 +97,12 @@ export interface Store {
   getStats(query: StatsQuery): Promise<Stats>;
   /** Delete events older than the given ISO-8601 cutoff; returns rows removed. */
   pruneEventsBefore(cutoff: string): Promise<number>;
+  /**
+   * (Re)aggregate recent raw events into the 5m/1h/1d rollup tiers (idempotent).
+   * `timezone` is the IANA zone whose civil day defines the daily ("1d") rollover;
+   * the 5m/1h tiers are timezone-independent fixed windows.
+   */
+  maintainRollups(timezone: string): Promise<void>;
+  /** Enforce rollup retention: 5m -> 30d, 1h -> 90d, 1d kept forever. */
+  pruneRollups(): Promise<void>;
 }
